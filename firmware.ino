@@ -7,7 +7,7 @@
 #include <BLEServer.h> // For creating a BLE server
 #include <BLE2902.h>   // For BLE descriptor for notifications (enhances compatibility)
 
-// --- BLE Service and Characteristic UUIDs ---
+// BLE Service and Characteristic UUIDs
 #define SERVICE_UUID "55925ea2-e795-4816-b8d5-e0dcf7c09b15"
 #define CHAR_UUID    "2823aff6-4924-4f5a-8fe9-fbebe5a97f93"
 
@@ -15,7 +15,7 @@
 BLECharacteristic* pCharacteristic;
 bool deviceConnected = false; // Flag to track connection status
 
-// --- MPU6050 Configuration ---
+// MPU6050 Configuration
 Adafruit_MPU6050 mpu; // Create an instance of the MPU6050 sensor object
 const int MPU_ADDR = 0x68; // I2C address of the MPU-6050 (usually 0x68)
 const int I2C_SDA_PIN = 21; // ESP32 default SDA pin
@@ -42,12 +42,11 @@ unsigned long lastDebounceTime3 = 0;
 unsigned long lastDebounceTime4 = 0;
 unsigned long lastDebounceTime5 = 0;
 
-// --- Global Mode Flag  ---
 // This flag determines if tilt movements control the cursor or scrolling.
 // False = Cursor mode, True = Scrolling mode
 bool isScrollingMode = false;
 
-// --- Data for BLE Transmission ---
+// Data for BLE Transmission
 float currentRollAngle = 0.0;
 float currentPitchAngle = 0.0;
 int currentButtonMask = 0;
@@ -56,7 +55,7 @@ int currentButtonMask = 0;
 const unsigned long BLE_UPDATE_INTERVAL_MS = 10;
 unsigned long lastBLEUpdateTime = 0;
 
-// --- BLE Server Callbacks ---
+// BLE Server Callbacks
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
         deviceConnected = true;
@@ -72,13 +71,12 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-// --- SETUP Function ---
 void setup() {
   Serial.begin(115200); // Initialize serial communication for debugging
   while (!Serial) { delay(10); } // Wait for serial port to connect (for some boards)
   Serial.println("ESP32 BLE Gesture Mouse Started!");
 
-  // --- Initialize Button Pins ---
+  // Initialize Button Pins
   pinMode(button1Pin, INPUT_PULLUP);
   pinMode(button2Pin, INPUT_PULLUP);
   pinMode(button3Pin, INPUT_PULLUP);
@@ -86,7 +84,7 @@ void setup() {
   pinMode(button5Pin, INPUT_PULLUP);
   Serial.println("Button pins configured.");
 
-  // --- Initialize I2C and MPU6050 ---
+  // Initialize I2C and MPU6050
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN); // Initialize I2C communication
   if (!mpu.begin(MPU_ADDR)) { // Attempt to initialize MPU6050
     Serial.println("Failed to find MPU6050 chip. Check wiring, power, and I2C address (0x68).");
@@ -100,7 +98,7 @@ void setup() {
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);        // Set Digital Low Pass Filter (DLPF) bandwidth
   Serial.println("MPU-6050 Configured.");
 
-  // --- Initialize BLE Server ---
+  // Initialize BLE Server
   BLEDevice::init("NanoESP32-BLE"); // Initialize BLE with the device name
   BLEServer* pServer = BLEDevice::createServer(); // Create a BLE server
   pServer->setCallbacks(new MyServerCallbacks()); // Set the custom callback for server events
@@ -125,7 +123,7 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID); // Advertise your service UUID
   pAdvertising->setScanResponse(true); // Ensure scan responses are enabled for better discoverability
 
-  // Set preferred connection parameters (from your new BLE code)
+  // Set preferred connection parameters
   // Units are 1.25ms. 0x06 = 7.5ms, 0x12 = 22.5ms.
   pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMaxPreferred(0x12);
@@ -136,14 +134,11 @@ void setup() {
   Serial.println("Press Button 1 to toggle between CURSOR and SCROLLING modes.");
 }
 
-
-// --- LOOP Function ---
 void loop() {
   unsigned long currentTime = millis(); // Get the current time for timing operations
 
-  // --- Button Handling Logic ---
+  // Button Handling Logic
   // Reads button states, applies debouncing, and updates currentButtonMask.
-  // The 'isScrollingMode' toggle for Button 1 is also handled here.
 
   // Button 1
   int reading1 = digitalRead(button1Pin);
@@ -214,15 +209,15 @@ void loop() {
   lastButton5State = reading5;
 
 
-  // --- Accelerometer Handling Logic ---
+  // Accelerometer Handling Logic
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp); // Get accelerometer data
 
-  // Calculate Pitch and Roll from Accelerometer data.
+  // Calculate Pitch and Roll from Accelerometer data
   currentRollAngle = atan2(a.acceleration.y, a.acceleration.z) * 180.0 / PI;
   currentPitchAngle = atan2(-a.acceleration.x, sqrt(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) * 180.0 / PI;
 
-  // --- Data Packet Formulation and BLE Notification ---
+  // Data Packet Formulation and BLE Notification
   // Only send notifications if a device is connected AND enough time has passed
   if (deviceConnected && (currentTime - lastBLEUpdateTime >= BLE_UPDATE_INTERVAL_MS)) {
     // Format the data into a comma-separated string: "Pitch,Roll,ButtonMask,IsScrollingMode"
