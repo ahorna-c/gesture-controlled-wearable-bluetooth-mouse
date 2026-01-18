@@ -3,13 +3,13 @@ import time
 import asyncio
 from bleak import BleakClient, BleakScanner
 
-# --- Configuration Parameters for Cursor Control ---
+# Configuration Parameters for Cursor Control
 SENSITIVITY = 5
 DEAD_ZONE_DEGREES = 3.0 # Angle below which no tilt is registered (to avoid noise)
 MAX_CURSOR_SPEED = 50
 SCROLL_SPEED = 5 # Adjust this value as needed for scrolling sensitivity
 
-# --- BLE Configuration ---
+# BLE Configuration
 SERVICE_UUID = "55925ea2-e795-4816-b8d5-e0dcf7c09b15"
 CHARACTERISTIC_UUID = "2823aff6-4924-4f5a-8fe9-fbebe5a97f93"
 DEVICE_NAME = "NanoESP32-BLE" # Matches the name in ESP32's BLEDevice::init()
@@ -23,12 +23,12 @@ latest_sensor_data = {
 }
 data_updated_event = asyncio.Event() # Event to signal when new data has been received
 
-# --- Global state variables for printing (to avoid spam) ---
+# Global state variables for printing
 prev_button_mask = 0
 last_printed_tilt_direction = "NONE" # "NONE", "LEFT", "RIGHT", "UP", "DOWN"
 last_printed_mode = False # Stores the last printed mode (False for Cursor, True for Scrolling)
 
-# --- BLE Notification Callback Function ---
+# BLE Notification Callback Function
 def notification_handler(sender, data: bytearray):
     """
     Handles incoming BLE notifications. Parses the byte array data into
@@ -51,9 +51,6 @@ def notification_handler(sender, data: bytearray):
             latest_sensor_data["is_scrolling_mode"] = is_scrolling_mode
            
             data_updated_event.set() # Signal that new data is available
-           
-            # Optional: print raw received data for debugging
-            # print(f"Raw Received: P={pitch:.2f}, R={roll:.2f}, BM={button_mask}, Mode={'Scroll' if is_scrolling_mode else 'Cursor'}")
         else:
             print(f"Received malformed data: '{received_string}' (expected 4 parts, got {len(parts)})")
     except (ValueError, IndexError) as e:
@@ -61,7 +58,7 @@ def notification_handler(sender, data: bytearray):
     except Exception as e:
         print(f"Unexpected error in notification_handler: {e}")
 
-# --- Mapping Function for Tilt to Movement (Unchanged) ---
+# Mapping Function for Tilt to Movement
 def map_tilt_to_movement(angle, sensitivity, dead_zone, max_speed):
     """
     Calculates the cursor/scroll movement (in pixels/units) based on a given tilt angle.
@@ -76,7 +73,7 @@ def map_tilt_to_movement(angle, sensitivity, dead_zone, max_speed):
         movement = -max_speed
     return movement
 
-# --- Main BLE Connection and Cursor Control Logic ---
+# Main BLE Connection and Cursor Control Logic
 async def run_ble_cursor_control():
     global prev_button_mask, last_printed_tilt_direction, last_printed_mode
 
@@ -134,17 +131,15 @@ async def run_ble_cursor_control():
                 if operate:
                     current_is_scrolling_mode = latest_sensor_data["is_scrolling_mode"]
 
-                # --- Interpret and Print Mode ---
+                # Interpret and Print Mode
                 if (current_is_scrolling_mode != last_printed_mode):
                     print(f"MODE: {'NOW SCROLLING' if current_is_scrolling_mode else 'CURSOR'}")
                     last_printed_mode = current_is_scrolling_mode
 
-                # --- Interpret and Print Button Presses ---
+                # Interpret and Print Button Presses
                 for i in range(5): # Check for up to 5 buttons
                     # Check if the current button (bit i) is pressed AND it was not pressed in the previous mask
                     if (current_button_mask & (1 << i)) and not (prev_button_mask & (1 << i)):
-                        # IMPORTANT: The actual mode toggle is handled by the ESP32 for Button 1
-                        # This Python code only reacts to the button press for mouse actions.
                         if operate:
                             if i == 0: # Button 1
                                 print("--> Button 1 PRESSED (Mode Toggle). No click action in Python.")
@@ -155,25 +150,21 @@ async def run_ble_cursor_control():
                             elif i == 2: # Button 3
                                 pyautogui.click() # Assigned to Normal (Left) Click
                                 print("--> Button 3 PRESSED (Right Click)!")
-                        # Add more actions for other buttons if desired
-                        # elif i == 3: # Button 4
-                        #     pyautogui.press('volumemute')
+                            elif i == 3: # Button 4
+                                pyautogui.press('volumemute')
                         if i == 4: # Button 5
                             operate = not operate
 
                 # Update the previous button mask for the next iteration
                 prev_button_mask = current_button_mask
 
-                # --- Interpret and Print Tilt Direction (Reflecting New Mapping) ---
+                # Interpret and Print Tilt Direction
                 current_tilt_direction = "NONE"
 
-                # New Mapping:
                 # Roll (physical left/right tilt) now controls UP/DOWN.
                 # Pitch (physical forward/backward tilt) now controls LEFT/RIGHT.
                 if operate:
                     # Check for roll (vertical movement/scroll)
-                    # Note: These interpretations are for printing, they describe the *physical* tilt.
-                    # The actual scroll direction is inverted below to match user's request.
                     if current_roll > (DEAD_ZONE_DEGREES + 5): # Positive roll means physical right tilt
                         current_tilt_direction = "DOWN" # This maps to logical DOWN for screen content
                     elif current_roll < -(DEAD_ZONE_DEGREES + 5): # Negative roll means physical left tilt
@@ -193,7 +184,7 @@ async def run_ble_cursor_control():
                         last_printed_tilt_direction = current_tilt_direction
 
 
-                    # --- Apply Cursor/Scroll Movement (Reflecting New Mapping) ---
+                    # Apply Cursor/Scroll Movement
                     if not current_is_scrolling_mode: # Cursor Mode
                         # dx (horizontal movement) now comes from PITCH
                         # dy (vertical movement) now comes from ROLL
@@ -206,15 +197,12 @@ async def run_ble_cursor_control():
                         scroll_y = map_tilt_to_movement(current_roll, SCROLL_SPEED, DEAD_ZONE_DEGREES, MAX_CURSOR_SPEED)
                     
                         if scroll_y != 0:
-                            # Crucial Change: Invert the scroll_y amount.
-                            # pyautogui.scroll(positive) scrolls UP.
-                            # pyautogui.scroll(negative) scrolls DOWN.
                             # If current_roll < 0 (physical "up" tilt) -> scroll_y negative.
                             # We want it to scroll UP, so need a positive amount. -> -negative = positive.
                             # If current_roll > 0 (physical "down" tilt) -> scroll_y positive.
                             # We want it to scroll DOWN, so need a negative amount. -> -positive = negative.
                             pyautogui.scroll(-int(round(scroll_y)))
-                        # Horizontal scrolling is explicitly removed/commented out.
+                        # Horizontal scrolling is disabled for now.
                         # if scroll_x != 0:
                         #     pyautogui.hscroll(scroll_x)
                 
@@ -232,9 +220,10 @@ async def run_ble_cursor_control():
             except Exception as e:
                 print(f"Error stopping notifications: {e}")
 
-# --- Script Execution ---
+# Script Execution
 if __name__ == "__main__":
     print("Starting BLE gesture control in 3 seconds. Switch to your target application now...")
     time.sleep(3)
    
     asyncio.run(run_ble_cursor_control())
+
