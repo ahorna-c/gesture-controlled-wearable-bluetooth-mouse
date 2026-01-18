@@ -7,7 +7,7 @@
 #include <BLEServer.h> // For creating a BLE server
 #include <BLE2902.h>   // For BLE descriptor for notifications (enhances compatibility)
 
-// --- BLE Service and Characteristic UUIDs (from your existing BLE code) ---
+// --- BLE Service and Characteristic UUIDs ---
 #define SERVICE_UUID "55925ea2-e795-4816-b8d5-e0dcf7c09b15"
 #define CHAR_UUID    "2823aff6-4924-4f5a-8fe9-fbebe5a97f93"
 
@@ -15,28 +15,17 @@
 BLECharacteristic* pCharacteristic;
 bool deviceConnected = false; // Flag to track connection status
 
-// --- MPU6050 Configuration (from your accelerometer code) ---
+// --- MPU6050 Configuration ---
 Adafruit_MPU6050 mpu; // Create an instance of the MPU6050 sensor object
 const int MPU_ADDR = 0x68; // I2C address of the MPU-6050 (usually 0x68)
-//old 
 const int I2C_SDA_PIN = 21; // ESP32 default SDA pin
 const int I2C_SCL_PIN = 22; // ESP32 default SCL pin
-// const int I2C_SDA_PIN = 5; // ESP32 default SDA pin
-// const int I2C_SCL_PIN = 4; // ESP32 default SCL pin
 
-// --- Button Definitions (from your button code) ---
-// old
 const int button1Pin = 19; // Button 1 - typically used for left-click or mode toggle
 const int button2Pin = 4;
 const int button3Pin = 18;
-const int button4Pin = 5; //take out
+const int button4Pin = 5;
 const int button5Pin = 23;
-// const int button1Pin = 1; // Button 1 - typically used for left-click or mode toggle
-// const int button2Pin = 3;
-// const int button3Pin = 6;
-// const int button4Pin = 7;
-// const int button5Pin = 10;
-
 
 // Variables to store the current and previous button states for debouncing
 // Assuming INPUT_PULLUP, so HIGH is unpressed, LOW is pressed
@@ -53,7 +42,7 @@ unsigned long lastDebounceTime3 = 0;
 unsigned long lastDebounceTime4 = 0;
 unsigned long lastDebounceTime5 = 0;
 
-// --- Global Mode Flag (from your accelerometer code) ---
+// --- Global Mode Flag  ---
 // This flag determines if tilt movements control the cursor or scrolling.
 // False = Cursor mode, True = Scrolling mode
 bool isScrollingMode = false;
@@ -61,32 +50,23 @@ bool isScrollingMode = false;
 // --- Data for BLE Transmission ---
 float currentRollAngle = 0.0;
 float currentPitchAngle = 0.0;
-// Use a bitmask for button states:
-// Bit 0: Button 1 (0x01)
-// Bit 1: Button 2 (0x02)
-// Bit 2: Button 3 (0x04)
-// Bit 3: Button 4 (0x08)
-// Bit 4: Button 5 (0x10)
-// The Python script will decode this bitmask.
 int currentButtonMask = 0;
 
 // Interval for sending BLE notifications (e.g., 50ms for smoother control)
 const unsigned long BLE_UPDATE_INTERVAL_MS = 10;
 unsigned long lastBLEUpdateTime = 0;
 
-// --- BLE Server Callbacks (from your new BLE code) ---
+// --- BLE Server Callbacks ---
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
         deviceConnected = true;
         Serial.println("Device connected!");
-        // Optionally, stop advertising here if you only want one connection at a time.
-        // pServer->getAdvertising()->stop(); // Use pServer->getAdvertising() for stopping specific server's advertising
     };
 
     void onDisconnect(BLEServer* pServer) {
         deviceConnected = false;
         Serial.println("Device disconnected!");
-        // *** CRUCIAL: Restart advertising to become discoverable again ***
+        // Restart advertising to become discoverable again
         BLEDevice::startAdvertising(); // This restarts advertising for any BLEDevice instance
         Serial.println("Advertising restarted.");
     }
